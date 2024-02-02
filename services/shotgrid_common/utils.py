@@ -385,46 +385,49 @@ def get_sg_entities(
     )
 
     for enabled_entity in project_enabled_entities:
-        entity_name, parent_field = enabled_entity
+        entity_type, parent_field = enabled_entity
 
-        if entity_name in entities_to_ignore:
+        if entity_type in entities_to_ignore:
             continue
 
         sg_entities = sg_session.find(
-            entity_name,
+            entity_type,
             filters=[["project", "is", sg_project]],
             fields=common_fields,
         )
-        if sg_entities:
-            for entity in sg_entities:
-                parent_id = sg_project["id"]
 
-                if parent_field != "project" and entity[parent_field] and entity_name != "Asset":
-                    parent_id = entity[parent_field]["id"]
-                elif entity_name == "Asset" and entity["sg_asset_type"]:
-                    # Asset Caregories (sg_asset_type) are not entities
-                    # (or at least arent queryable) in Shotgrid
-                    # thus here we create common folders.
-                    asset_category = entity["sg_asset_type"]
-                    asset_category_entity = {
-                        "label": asset_category,
-                        "name": slugify_string(asset_category).lower(),
-                        SHOTGRID_ID_ATTRIB: slugify_string(asset_category).lower(),
-                        SHOTGRID_TYPE_ATTRIB: "AssetCategory",
-                        CUST_FIELD_CODE_ID: None,
-                        CUST_FIELD_CODE_SYNC: None,
-                        "type": "AssetCategory",
-                    }
+        if not sg_entities:
+            continue
+        
+        for entity in sg_entities:
+            parent_id = sg_project["id"]
 
-                    if not entities_by_id.get(asset_category_entity["name"]):
-                        entities_by_id[asset_category_entity["name"]] = asset_category_entity
-                        entities_by_parent_id[sg_project["id"]].append(asset_category_entity)
+            if parent_field != "project" and entity[parent_field] and entity_type != "Asset":
+                parent_id = entity[parent_field]["id"]
+            elif entity_type == "Asset" and entity["sg_asset_type"]:
+                # Asset Categories (sg_asset_type) are not entities
+                # (or at least arent queryable) in Shotgrid
+                # thus here we create common folders.
+                asset_category = entity["sg_asset_type"]
+                asset_category_entity = {
+                    "label": asset_category,
+                    "name": slugify_string(asset_category).lower(),
+                    SHOTGRID_ID_ATTRIB: slugify_string(asset_category).lower(),
+                    SHOTGRID_TYPE_ATTRIB: "AssetCategory",
+                    CUST_FIELD_CODE_ID: None,
+                    CUST_FIELD_CODE_SYNC: None,
+                    "type": "AssetCategory",
+                }
 
-                    parent_id = asset_category_entity["name"]
+                if not entities_by_id.get(asset_category_entity["name"]):
+                    entities_by_id[asset_category_entity["name"]] = asset_category_entity
+                    entities_by_parent_id[sg_project["id"]].append(asset_category_entity)
 
-                entity = _sg_to_ay_dict(entity, project_code_field=project_code_field)
-                entities_by_id[entity[SHOTGRID_ID_ATTRIB]] = entity
-                entities_by_parent_id[parent_id].append(entity)
+                parent_id = asset_category_entity["name"]
+
+            entity = _sg_to_ay_dict(entity, project_code_field=project_code_field)
+            entities_by_id[entity[SHOTGRID_ID_ATTRIB]] = entity
+            entities_by_parent_id[parent_id].append(entity)
 
     return entities_by_id, entities_by_parent_id
 
