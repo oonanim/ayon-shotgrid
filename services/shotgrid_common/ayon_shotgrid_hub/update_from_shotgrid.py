@@ -25,6 +25,7 @@ And most of the times it fetches the SG entity as an Ayon dict like:
 
 from utils import (
     get_asset_category,
+    get_target_folders_by_type,
     get_sg_entity_as_ay_dict,
     get_sg_entity_parent_field
 )
@@ -84,6 +85,8 @@ def create_ay_entity_from_sg_event(sg_event, sg_project, sg_session, ayon_entity
             "no longer exists in Shotgrid, aborting..."
         )
         return
+    
+    ay_target_folders = get_target_folders_by_type(ayon_entity_hub)
 
     if sg_entity_dict.get(CUST_FIELD_CODE_ID):
         # Revived entity, check if it's still in the Server
@@ -113,28 +116,37 @@ def create_ay_entity_from_sg_event(sg_event, sg_project, sg_session, ayon_entity
         logging.debug(f"SG Parent is the Project: {sg_project}")
         ay_parent_entity = ayon_entity_hub.project_entity
     else:
-        if sg_entity_dict["type"] == "Asset" and sg_entity_dict.get("sg_asset_type"):
+        # Find parent entity ID
+        sg_parent_entity_dict = get_sg_entity_as_ay_dict(
+            sg_session,
+            sg_entity_dict[sg_parent_field]["type"],
+            sg_entity_dict[sg_parent_field]["id"],
+            project_code_field
+        )
+
+        logging.debug(f"SG Parent entity: {sg_parent_entity_dict}")
+        ay_parent_entity = ayon_entity_hub.get_or_query_entity_by_id(
+            sg_parent_entity_dict.get(CUST_FIELD_CODE_ID),
+            ["task" if sg_parent_entity_dict.get(CUST_FIELD_CODE_ID).lower() == "task" else "folder"]
+        )
+    if not ay_parent_entity:
+        # Prio 1 : Change parent if a folder targets this entity sub_type.
+        if sg_entity_dict.get("sg_asset_type", "").lower() in ay_target_folders:
+            logging.debug(f"SG Parent is a Target Folder.")
+            ay_parent_entity = ay_target_folders[sg_entity_dict.get("sg_asset_type", "").lower()]
+        
+        # Prio 2 : Change parent if a folder targets this entity type.
+        elif sg_entity_dict.get("type", "").lower() in ay_target_folders:
+            logging.debug(f"SG Parent is a Target Folder.")
+            ay_parent_entity = ay_target_folders[sg_entity_dict.get("type", "").lower()]
+        
+        # Prio 3 : Change parent if an AssetCategory exists for this asset's type.
+        elif sg_entity_dict["type"] == "Asset" and sg_entity_dict.get("sg_asset_type"):
             logging.debug(f"SG Parent is an Asset category.")
 
             ay_parent_entity = get_asset_category(
                 ayon_entity_hub,
-                ayon_entity_hub.project_entity,
                 sg_entity_dict.get("sg_asset_type").lower()
-            )
-
-        else:
-            # Find parent entity ID
-            sg_parent_entity_dict = get_sg_entity_as_ay_dict(
-                sg_session,
-                sg_entity_dict[sg_parent_field]["type"],
-                sg_entity_dict[sg_parent_field]["id"],
-                project_code_field
-            )
-
-            logging.debug(f"SG Parent entity: {sg_parent_entity_dict}")
-            ay_parent_entity = ayon_entity_hub.get_or_query_entity_by_id(
-                sg_parent_entity_dict.get(CUST_FIELD_CODE_ID),
-                ["task" if sg_parent_entity_dict.get(CUST_FIELD_CODE_ID).lower() == "task" else "folder"]
             )
 
     if not ay_parent_entity:
