@@ -186,7 +186,29 @@ def create_sg_entities_in_ay(
     return sg_entities, sg_steps
 
 
-def get_asset_category(entity_hub, parent_entity, asset_category_name):
+def get_asset_categories_by_name(entity_hub):
+    """ Look for all existing "AssetCategory" folders in AYON.
+    Args:
+        entity_hub (ayon_api.EntityHub): The project's entity hub.
+    """
+    entity_hub.query_entities_from_server()
+    asset_categories = {
+        entity.name: entity
+            for entity in entity_hub.entities
+                if entity.entity_type.lower() == "folder"
+                and entity.folder_type == "AssetCategory"
+    }
+    
+    if not asset_categories:
+        logging.debug("No 'AssetCategory'(s) folder found\n")
+        return {}
+    
+    logging.debug(f"Found existing 'AssetCategory'(s)\n{asset_categories}")
+    
+    return asset_categories
+
+
+def get_asset_category(entity_hub, asset_category_name):
     """ Look for existing "AssetCategory" folders in AYON.
 
         Asset categoried are not entities per se in Shotgrid, they are a "string"
@@ -199,6 +221,16 @@ def get_asset_category(entity_hub, parent_entity, asset_category_name):
         parent_entity: Ayon parent entity.
         asset_category_name (str): The Asset Category name.
     """
+    logging.debug(f"'{asset_category_name}' is an AssetCategory, checking if it exists already.")
+    asset_categories = get_asset_categories_by_name(entity_hub)
+
+    asset_category = asset_categories.get(asset_category_name)
+    if asset_category:
+        logging.debug(f"AssetCategory already exists: {asset_category}")
+        return asset_category
+
+    logging.debug(f"Unable to find AssetCategory: {asset_category}")
+    return None
     logging.debug(
         "It's an AssetCategory, checking if it exists already."
     )
