@@ -485,7 +485,7 @@ def get_sg_entity_parent_field(
     """Find the Shotgrid entity field that points to its parent.
 
     This is handy since there is really no way to tell the parent entity of
-    a Shotgrid entity unless you don't know this field, and it can change based
+    a Shotgrid entity unless you know this field, and it can change based
     on projects and their Tracking Settings.
 
     Args:
