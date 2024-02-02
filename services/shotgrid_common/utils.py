@@ -151,13 +151,16 @@ def create_sg_entities_in_ay(
     ]
 
     new_folder_types = sg_entities + project_entity.folder_types
-    # So we can have a specific folder for AssetCategory
-    new_folder_types.append({"name": "AssetCategory"})
-
+    
     new_folder_types = list({
         entity['name']: entity
         for entity in new_folder_types
     }.values())
+    # So we can have a specific folder for AssetCategory and TargetFolder
+    if not any(entity.get("name") == "AssetCategory" for entity in new_folder_types):
+        new_folder_types.append({"name": "AssetCategory", "icon": "group_work"})
+    if not any(entity.get("name") == "TargetFolder" for entity in new_folder_types):
+        new_folder_types.append({"name": "TargetFolder", "icon": "adjust"})
     project_entity.folder_types = new_folder_types
 
     # Add Shotgrid Statuses to Project Entity
