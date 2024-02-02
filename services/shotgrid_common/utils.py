@@ -642,23 +642,27 @@ def get_sg_project_enabled_entities(
             sg_entity_type, {}
         ).get("visible", {}).get("value", False)
 
-        if is_entity_enabled:
-            parent_field = project_navigation.get(sg_entity_type, None)
+        if not is_entity_enabled:
+            continue
 
-            if parent_field and parent_field != "__flat__":
-                if "," in parent_field:
-                    # This catches instances where the Hirearchy is set to 
-                    # something like "Seq > Secene > Shot" which returns a string
-                    # like so: 'sg_scene,Scene.sg_sequence' and confusing enough
-                    # we want the first element to be the parent.
-                    parent_field = parent_field.split(",")[0]
+        parent_field = project_navigation.get(sg_entity_type, None)
 
-                project_entities.append((
-                    sg_entity_type,
-                    parent_field.replace(f"{sg_entity_type}.", "")
-                ))
-            else:
-                project_entities.append((sg_entity_type, "project"))
+        if not parent_field or parent_field == "__flat__":
+            project_entities.append((sg_entity_type, "project"))
+            continue
+        
+        if "," in parent_field:
+            parent_field = parent_field.split(",")[0]
+            # This catches instances where the Hierarchy is set to 
+            # something like "Seq > Scene > Shot" which returns a string
+            # like so: 'sg_scene,Scene.sg_sequence' and confusing enough
+            # we want the first element to be the parent.
+
+        project_entities.append((
+            sg_entity_type,
+            parent_field.replace(f"{sg_entity_type}.", "")
+        ))
+            
 
     logging.debug(f"Project {sg_project} enabled entities: {project_entities}")
     return project_entities
