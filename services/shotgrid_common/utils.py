@@ -231,28 +231,31 @@ def get_asset_category(entity_hub, asset_category_name):
 
     logging.debug(f"Unable to find AssetCategory: {asset_category}")
     return None
+
+
+def get_target_folders_by_type(entity_hub):
+    """ Look for existing "TargetFolder" folders in AYON.
+
+    Args:
+        entity_hub (ayon_api.EntityHub): The project's entity hub.
+    """
     logging.debug(
-        "It's an AssetCategory, checking if it exists already."
+        "Looking for existing {entity_type} TargetFolder."
     )
     entity_hub.query_entities_from_server()
-    asset_categories = [
-        entity
+    target_folders = {
+        entity.attribs.get("targetFolder").lower(): entity
         for entity in entity_hub.entities
-        if entity.entity_type.lower() == "folder" and entity.folder_type == "AssetCategory"
-    ]
-
-    logging.debug(f"Found existing 'AssetCategory'(s)\n{asset_categories}")
-
-    for asset_category in asset_categories:
-        if (
-            asset_category.name == asset_category_name
-            and asset_category.parent.id == parent_entity.id
-        ):
-            logging.debug(f"AssetCategory already exists: {asset_category}")
-            return asset_category
+        if entity.entity_type.lower() == "folder" 
+        and entity.folder_type == "TargetFolder"
+        and entity.attribs.get("targetFolder") is not None
+    }
+    if target_folders:
+        logging.debug(f"Found existing 'TargetFolder'(s)\n{target_folders}")
+        return target_folders
 
     logging.debug(f"Unable to find AssetCategory.")
-    return None
+    return {}
 
 
 def get_or_create_sg_field(
