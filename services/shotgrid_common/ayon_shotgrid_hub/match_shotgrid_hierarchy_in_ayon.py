@@ -7,7 +7,7 @@ from constants import (
     SHOTGRID_TYPE_ATTRIB,
 )
 
-from utils import get_sg_entities, get_asset_category
+from utils import get_sg_entities, get_asset_categories_by_name, get_target_folders_by_type
 
 from nxtools import logging, log_traceback
 
@@ -19,9 +19,9 @@ def match_shotgrid_hierarchy_in_ayon(
 
     This function creates a "deck" which we keep increasing while traversing
     the Shotgrid project and finding new childrens, this is more efficient than
-    creating a dictionary with the whle Shotgrid project structure since we
+    creating a dictionary with the whole Shotgrid project structure since we
     `popleft` the elements when procesing them.
-
+    pop() <- [...deck...] <- append()
     Args:
         entity_hub (ayon_api.entity_hub.EntityHub): The AYON EntityHub.
         sg_project (dict): The Shotgrid project.
@@ -41,6 +41,10 @@ def match_shotgrid_hierarchy_in_ayon(
     for sg_project_child in sg_entities_by_parent_id[sg_project["id"]]:
         sg_entities_deck.append((entity_hub.project_entity, sg_project_child))
 
+    # Get all ay folders aimed to be a parent (TargetFolder, AssetCategory)
+    ay_target_folders = get_target_folders_by_type(entity_hub)
+    ay_asset_category_folders = get_asset_categories_by_name(entity_hub)
+    
     sg_project_sync_status = "Synced"
 
     while sg_entities_deck:
@@ -51,26 +55,39 @@ def match_shotgrid_hierarchy_in_ayon(
         sg_entity_sync_status = "Synced"
 
         ay_id = sg_entity.get("sg_ayon_id")
-        ay_type = ["task" if sg_entity.get("shotgridType") == "Task" else "folder"]
+        ay_type = ["task" if sg_entity.get(SHOTGRID_TYPE_ATTRIB) == "Task" else "folder"]
 
         if ay_id:
             ay_entity = entity_hub.get_or_query_entity_by_id(ay_id, ay_type)
 
         # If we couldn't find it we create it.
         if ay_entity is None:
-            if sg_entity.get("shotgridType") == "AssetCategory":
-                ay_entity = get_asset_category(
-                    entity_hub,
-                    ay_parent_entity,
-                    sg_entity["name"]
-                )
-
+            if sg_entity.get(SHOTGRID_TYPE_ATTRIB) == "AssetCategory":
+                ay_entity = ay_asset_category_folders.get(sg_entity["name"])
+            
+            if ay_parent_entity.id == entity_hub.project_entity.id:
+                logging.debug("Parent entity is the project, trying to find a better match")
+                # Prio 1 : Change parent if a folder targets this entity sub_type.
+                if (key := sg_entity.get("type", "").lower()) in ay_target_folders:
+                    logging.debug(f"Found TargetFolder {key}")
+                    ay_parent_entity = ay_target_folders[key]
+                # Prio 2 : Change parent if a folder targets this entity type.
+                if (key := sg_entity.get("sg_asset_type", "").lower()) in ay_target_folders:
+                    logging.debug(f"Found TargetFolder {key}")
+                    ay_parent_entity = ay_target_folders[key]
+                else:
+                    logging.debug(f"No TargetFolder found for {key}, using Project as a parent")
+            else:
+                logging.debug(f"Parent entity is {ay_parent_entity}")
             if not ay_entity:
                 ay_entity = _create_new_entity(
                     entity_hub,
                     ay_parent_entity,
                     sg_entity
                 )
+                # If relevant, save the AssetCategory in the list.
+                if sg_entity.get(SHOTGRID_TYPE_ATTRIB) == "AssetCategory":
+                    ay_asset_category_folders[sg_entity["name"]] = ay_entity
         else:
             logging.debug(
                 f"Entity {ay_entity.name} <{ay_entity.id}> exists in AYON. "
