@@ -150,7 +150,7 @@ def create_ay_entity_from_sg_event(sg_event, sg_project, sg_session, ayon_entity
             )
 
     if not ay_parent_entity:
-        # This really should be an edge  ase, since any parent event would
+        # This really should be an edge case, since any parent event would
         # happen before this... but hey
         raise ValueError("Parent does not exist in Ayon, try doing a Project Sync.")
 
